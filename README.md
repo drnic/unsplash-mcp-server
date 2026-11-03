@@ -53,38 +53,61 @@ Requests with no key get a `401`. The server never falls back to a key of its ow
 
 ## Client configuration
 
-### Claude Code on the web (and the Claude Code CLI): `.mcp.json` in your project repo
+Replace `unsplash-mcp.example.com` below with your deployed host. You can check it's up by opening `https://<host>/health` in a browser.
 
-Commit this to the repository the session works on:
+### Claude Code on the web: `.mcp.json` in your project repo
 
-```json
-{
-  "mcpServers": {
-    "unsplash": {
-      "type": "http",
-      "url": "https://unsplash-mcp.example.com/mcp",
-      "headers": { "Authorization": "Bearer ${UNSPLASH_ACCESS_KEY}" }
-    }
-  }
-}
-```
+1. **Commit `.mcp.json`** to the root of the repository your Claude Code sessions work on:
 
-Then set `UNSPLASH_ACCESS_KEY` as an environment variable in the cloud environment's settings, so the key never goes into git. Docs: <https://code.claude.com/docs/en/claude-code-on-the-web> and <https://code.claude.com/docs/en/mcp>.
+   ```json
+   {
+     "mcpServers": {
+       "unsplash": {
+         "type": "http",
+         "url": "https://unsplash-mcp.example.com/mcp",
+         "headers": { "Authorization": "Bearer ${UNSPLASH_ACCESS_KEY}" }
+       }
+     }
+   }
+   ```
 
-From the CLI you can add the same server with:
+   Claude Code expands `${UNSPLASH_ACCESS_KEY}` at runtime, so the key itself never goes into git.
+
+2. **Add the key to the cloud environment.** Open the cloud environment menu in the session's title bar and choose **Edit**. Add an environment variable `UNSPLASH_ACCESS_KEY=<your key>`.
+
+3. **Allow your host through the network policy.** In the same settings, under **Network access**, either choose a broader access level, or add `unsplash-mcp.example.com` under **Allowed domains** and leave **Allow package managers** ticked. Without this, the session can't reach your server. Details: <https://code.claude.com/docs/en/cloud-environments#network-access>.
+
+4. **Start a new session.** Environment settings and MCP servers are read when a session starts. Check that `unsplash` is listed with `/mcp`, or ask Claude to "search Unsplash for …".
+
+More: <https://code.claude.com/docs/en/claude-code-on-the-web> and <https://code.claude.com/docs/en/mcp>.
+
+**Alternative:** if you've added the claude.ai connector described below, it's also available in Claude Code on the web sessions, with no `.mcp.json` or environment variable needed.
+
+### Claude Code CLI (local terminal)
+
+The same `.mcp.json` works locally, with `UNSPLASH_ACCESS_KEY` exported in your shell. Or add the server to your own user config:
 
 ```bash
-claude mcp add --transport http unsplash https://unsplash-mcp.example.com/mcp \
+claude mcp add --transport http --scope user unsplash https://unsplash-mcp.example.com/mcp \
   --header "Authorization: Bearer $UNSPLASH_ACCESS_KEY"
 ```
 
-### claude.ai custom connector (also available inside Claude Code on the web sessions)
+### claude.ai (web, desktop and mobile apps): custom connector
 
-Go to <https://claude.ai/customize/connectors>, choose **Add custom connector**, and enter the URL:
+claude.ai connectors can't send custom headers, so the key goes in the URL path.
 
-```
-https://unsplash-mcp.example.com/mcp/<your-unsplash-access-key>
-```
+1. Go to <https://claude.ai/customize/connectors> and choose **Add custom connector**.
+2. Name: `Unsplash`. URL:
+
+   ```
+   https://unsplash-mcp.example.com/mcp/<your-unsplash-access-key>
+   ```
+
+3. Leave the OAuth fields empty and save. Then enable the connector in a chat from the tools menu, or start a new Claude Code on the web session to pick it up.
+
+On a Team or Enterprise plan, an owner may need to add custom connectors in organisation settings first. Help: <https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp>.
+
+> Anyone who sees this URL can use your Unsplash quota. Don't share it. Rotate the key at <https://unsplash.com/oauth/applications> if it leaks.
 
 ### Codex (`~/.codex/config.toml`)
 
