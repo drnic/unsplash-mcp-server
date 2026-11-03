@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { UnsplashClient, clamp, toInt, type ClientOptions } from "./unsplash.ts";
+import { serverIcons } from "./icon.ts";
 import pkg from "../package.json" with { type: "json" };
 
 // Models sometimes send numbers as strings ("5"); accept both, like the original server.
@@ -35,7 +36,7 @@ function result<T extends Record<string, unknown>>(structured: T) {
 
 export function createServer(opts: ClientOptions): McpServer {
   const client = new UnsplashClient(opts);
-  const server = new McpServer({ name: "Unsplash MCP Server", version: pkg.version });
+  const server = new McpServer({ name: "Unsplash MCP Server", version: pkg.version, icons: serverIcons });
 
   server.registerTool(
     "search_photos",

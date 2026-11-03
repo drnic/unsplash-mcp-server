@@ -166,6 +166,9 @@ The server is stateless (no sessions; it answers with JSON instead of SSE stream
 1. **Attribution:** always credit the photographer and Unsplash (use `attribution_html`).
 2. **Hotlinking:** use the returned `urls` directly.
 3. **Download tracking:** call `track_download` when a photo is actually used or downloaded.
+4. **Icon:** the guidelines forbid using the Unsplash logo as an app icon, so `/favicon.ico`, `/favicon.svg` and the MCP `serverInfo.icons` use an original picture glyph (source: `assets/icon.svg`). Do not replace it with the Unsplash logo or a variation of it.
+
+This is an unofficial project. It is not affiliated with, sponsored by or endorsed by Unsplash.
 
 Rate limits: 50 requests/hour in demo mode, 5,000/hour once Unsplash approves your app for production.
 
