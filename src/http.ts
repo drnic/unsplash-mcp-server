@@ -12,6 +12,7 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { createServer } from "./server.ts";
 import { utmSource } from "./config.ts";
+import { faviconIco, iconSvg } from "./icon.ts";
 import pkg from "../package.json" with { type: "json" };
 
 const KEY_RE = /^[A-Za-z0-9_-]{10,128}$/;
@@ -36,12 +37,35 @@ const jsonRpcError = (status: number, message: string, headers: Record<string, s
 /** Strip keys out of anything we log. */
 export const redactPath = (p: string) => p.replace(/^\/mcp\/[^/]+/, "/mcp/[redacted]");
 
+const ICONS: Record<string, { body: Uint8Array<ArrayBuffer>; type: string }> = {
+  "/favicon.ico": { body: faviconIco, type: "image/x-icon" },
+  "/favicon.svg": { body: iconSvg, type: "image/svg+xml" },
+};
+
+function serveIcon(req: Request, icon: { body: Uint8Array<ArrayBuffer>; type: string }): Response {
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    return new Response("Method not allowed", { status: 405, headers: { allow: "GET, HEAD" } });
+  }
+  return new Response(req.method === "HEAD" ? null : icon.body, {
+    headers: {
+      "content-type": icon.type,
+      "content-length": String(icon.body.byteLength),
+      // 30 days, not "immutable": these URLs have no version in them, so a new icon must still reach clients.
+      "cache-control": "public, max-age=2592000",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+
 export async function handle(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
   if (url.pathname === "/" || url.pathname === "/health") {
     return Response.json({ name: pkg.name, version: pkg.version, status: "ok", mcp_endpoint: "/mcp" });
   }
+
+  const icon = ICONS[url.pathname];
+  if (icon) return serveIcon(req, icon);
 
   if (!/^\/mcp(\/[^/]+)?\/?$/.test(url.pathname)) {
     return new Response("Not found", { status: 404 });

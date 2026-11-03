@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Photo search server icon">
+  <rect width="64" height="64" rx="14" fill="#0f766e"/>
+  <circle cx="45" cy="20" r="8" fill="#fbbf24"/>
+  <path d="M6 52 24 24l13 20 6-8 15 16z" fill="#ecfdf5"/>
+</svg>

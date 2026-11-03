@@ -40,6 +40,65 @@ describe("extractKey", () => {
   test("redacts path keys", () => expect(redactPath(`/mcp/${KEY}`)).toBe("/mcp/[redacted]"));
 });
 
+describe("icons", () => {
+  const get = (path: string, method = "GET") => handle(new Request(`http://x${path}`, { method }));
+
+  test("/favicon.ico is a real ICO, long-cached, with no key", async () => {
+    const res = await get("/favicon.ico");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/x-icon");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=2592000");
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    expect([...bytes.slice(0, 4)]).toEqual([0, 0, 1, 0]); // ICO magic number
+    expect(bytes[4]).toBe(3); // 16, 32 and 48 px images
+    expect(res.headers.get("content-length")).toBe(String(bytes.byteLength));
+  });
+
+  test("/favicon.svg is a script-free SVG, long-cached, with no key", async () => {
+    const res = await get("/favicon.svg");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/svg+xml");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=2592000");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    const svg = await res.text();
+    expect(svg).toStartWith("<svg");
+    expect(svg).not.toMatch(/<script|\son\w+=|href=/i);
+  });
+
+  test("HEAD has the headers and no body", async () => {
+    const res = await get("/favicon.ico", "HEAD");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("image/x-icon");
+    expect(Number(res.headers.get("content-length"))).toBeGreaterThan(0);
+    expect((await res.arrayBuffer()).byteLength).toBe(0);
+  });
+
+  test("other methods get 405", async () => {
+    const res = await get("/favicon.ico", "POST");
+    expect(res.status).toBe(405);
+    expect(res.headers.get("allow")).toBe("GET, HEAD");
+  });
+
+  test("other paths still 404", async () => expect((await get("/favicon.png")).status).toBe(404));
+
+  test("serverInfo lists the icons as decodable data URIs", async () => {
+    const init = await rpc(
+      "/mcp",
+      { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "t", version: "1" } } },
+      { authorization: `Bearer ${KEY}` },
+    );
+    const { icons } = ((await init.json()) as any).result.serverInfo;
+    expect(icons.map((i: any) => [i.mimeType, i.sizes])).toEqual([
+      ["image/png", ["48x48"]],
+      ["image/svg+xml", ["any"]],
+    ]);
+    const decode = (i: any) => Buffer.from(i.src.slice(`data:${i.mimeType};base64,`.length), "base64");
+    expect(icons[0].src).toStartWith("data:image/png;base64,");
+    expect([...decode(icons[0]).subarray(1, 4)]).toEqual([0x50, 0x4e, 0x47]); // "PNG"
+    expect(decode(icons[1]).toString()).toStartWith("<svg");
+  });
+});
+
 describe("HTTP MCP", () => {
   test("health", async () => expect((await handle(new Request("http://x/health"))).status).toBe(200));
 
