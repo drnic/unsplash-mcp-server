@@ -207,9 +207,13 @@
           <li>Name: <code>Unsplash</code></li>
           <li>URL: <code>https://unsplash.mocra.com/mcp</code></li>
           <li>Authentication: <strong>No sign-in</strong></li>
-          <li>Under <strong>Request headers</strong>, add a header. Name: <code>Authorization</code>. Value: <code>Bearer &lt;your-unsplash-access-key&gt;</code></li>
+          <li>Under <strong>Request headers</strong>, add a header. Choose the name <code>x-api-key</code> from the list. Value: <code>&lt;your-unsplash-access-key&gt;</code>, with no prefix.</li>
           <li>Save. Then enable the connector in a chat from the tools menu.</li>
         </ol>
+        <p>Don't use <code>X-Unsplash-Access-Key</code> here. claude.ai only accepts header names that Anthropic has approved. If you try this name, claude.ai says it "isn't approved" and won't add the connector.</p>
+        <h4>If claude.ai shows "Connection issue"</h4>
+        <p>You may also see "Couldn't connect to the server. Check that the URL points to a valid MCP server." The cause may be the header and not the URL. Check that the header value is your full key. If you used <code>Authorization</code>, check that the value includes the <code>Bearer </code> prefix.</p>
+        <p>You can't view a header value after you save it, and the connector menu only offers <strong>Remove</strong>. To fix a value, remove the connector and add it again.</p>
         <p class="small">These steps were checked on a Max plan. Other plans may differ. On a Team or Enterprise plan, an owner may need to add custom connectors in organisation settings first. <a href="https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp">Anthropic's help article</a></p>
       </div>
 
@@ -220,7 +224,7 @@
         <div class="code"><pre tabindex="0"><code>export UNSPLASH_ACCESS_KEY=&lt;your-unsplash-access-key&gt;
 
 claude mcp add --transport http --scope user unsplash https://unsplash.mocra.com/mcp \
-  --header "Authorization: Bearer $UNSPLASH_ACCESS_KEY"</code></pre></div>
+  --header "X-Unsplash-Access-Key: $UNSPLASH_ACCESS_KEY"</code></pre></div>
         <p>Run <code>/mcp</code> in Claude Code and check that <code>unsplash</code> has a check mark.</p>
         <h4>In a project, or on Claude Code on the web</h4>
         <p>Commit this <code>.mcp.json</code> to the root of the repository. Claude Code fills in the variable when it runs, so your key stays out of git.</p>
@@ -229,7 +233,7 @@ claude mcp add --transport http --scope user unsplash https://unsplash.mocra.com
     "unsplash": {
       "type": "http",
       "url": "https://unsplash.mocra.com/mcp",
-      "headers": { "Authorization": "Bearer ${UNSPLASH_ACCESS_KEY}" }
+      "headers": { "X-Unsplash-Access-Key": "${UNSPLASH_ACCESS_KEY}" }
     }
   }
 }</code></pre></div>
@@ -262,9 +266,9 @@ claude mcp add --transport http --scope user unsplash https://unsplash.mocra.com
           <li>Add this to <code>~/.codex/config.toml</code>:
             <div class="code"><pre tabindex="0"><code>[mcp_servers.unsplash]
 url = "https://unsplash.mocra.com/mcp"
-bearer_token_env_var = "UNSPLASH_ACCESS_KEY"</code></pre></div>
+env_http_headers = { "X-Unsplash-Access-Key" = "UNSPLASH_ACCESS_KEY" }</code></pre></div>
           </li>
-          <li>Set the variable where Codex can read it. Codex sends its value in the <code>Authorization</code> header.
+          <li>Set the variable where Codex can read it. Codex sends its value in the <code>X-Unsplash-Access-Key</code> header. The config names the variable, so your key stays out of the file.
             <div class="code"><pre tabindex="0"><code>export UNSPLASH_ACCESS_KEY=&lt;your-unsplash-access-key&gt;</code></pre></div>
           </li>
           <li>Run <code>codex mcp list</code>, or <code>/mcp</code> inside Codex, and check that <code>unsplash</code> is listed.</li>
@@ -280,7 +284,7 @@ bearer_token_env_var = "UNSPLASH_ACCESS_KEY"</code></pre></div>
   "mcpServers": {
     "unsplash": {
       "url": "https://unsplash.mocra.com/mcp",
-      "headers": { "Authorization": "Bearer ${env:UNSPLASH_ACCESS_KEY}" }
+      "headers": { "X-Unsplash-Access-Key": "${env:UNSPLASH_ACCESS_KEY}" }
     }
   }
 }</code></pre></div>
@@ -308,7 +312,7 @@ bearer_token_env_var = "UNSPLASH_ACCESS_KEY"</code></pre></div>
     "unsplash": {
       "type": "http",
       "url": "https://unsplash.mocra.com/mcp",
-      "headers": { "Authorization": "Bearer ${input:unsplash-key}" }
+      "headers": { "X-Unsplash-Access-Key": "${input:unsplash-key}" }
     }
   }
 }</code></pre></div>
@@ -324,14 +328,15 @@ bearer_token_env_var = "UNSPLASH_ACCESS_KEY"</code></pre></div>
         <p>Any client that supports Streamable HTTP and custom headers can connect with these settings:</p>
         <ul>
           <li>URL: <code>https://unsplash.mocra.com/mcp</code></li>
-          <li>Header: <code>Authorization: Bearer &lt;your-unsplash-access-key&gt;</code></li>
-          <li>Or this header: <code>X-Unsplash-Access-Key: &lt;your-unsplash-access-key&gt;</code></li>
+          <li>Header: <code>X-Unsplash-Access-Key: &lt;your-unsplash-access-key&gt;</code>. The value is just the key.</li>
+          <li>Or this header, whose value is also just the key: <code>X-API-Key: &lt;your-unsplash-access-key&gt;</code></li>
+          <li>Or this header, which needs a prefix: <code>Authorization: Bearer &lt;your-unsplash-access-key&gt;</code> or <code>Authorization: Client-ID &lt;your-unsplash-access-key&gt;</code></li>
         </ul>
         <p>A client that can't send a custom header can't use the hosted server.</p>
         <h4>Check your key from a terminal</h4>
         <p>This lists the server's tools. It sends your key, but makes no call to Unsplash, so it doesn't check that Unsplash accepts the key.</p>
         <div class="code"><pre tabindex="0"><code>curl https://unsplash.mocra.com/mcp \
-  -H "Authorization: Bearer $UNSPLASH_ACCESS_KEY" \
+  -H "X-Unsplash-Access-Key: $UNSPLASH_ACCESS_KEY" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</code></pre></div>
