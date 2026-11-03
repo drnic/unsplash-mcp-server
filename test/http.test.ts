@@ -98,6 +98,78 @@ describe("request logger", () => {
   });
 });
 
+describe("homepage and health check", () => {
+  const get = (path: string, method = "GET") => handle(new Request(`http://x${path}`, { method }));
+  const page = async () => (await get("/")).text();
+
+  test("GET / returns HTML", async () => {
+    const res = await get("/");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    const html = await res.text();
+    expect(html.startsWith("<!doctype html>")).toBe(true);
+    expect(res.headers.get("content-length")).toBe(String(new TextEncoder().encode(html).byteLength));
+  });
+
+  test("HEAD / has no body, and other methods are refused", async () => {
+    const head = await get("/", "HEAD");
+    expect(head.status).toBe(200);
+    expect(head.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(await head.text()).toBe("");
+    const post = await get("/", "POST");
+    expect(post.status).toBe(405);
+    expect(post.headers.get("allow")).toBe("GET, HEAD");
+  });
+
+  test("GET /health still returns JSON", async () => {
+    const res = await get("/health");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/json");
+    const body: any = await res.json();
+    expect(body.status).toBe("ok");
+    expect(body.mcp_endpoint).toBe("/mcp");
+  });
+
+  test("never shows a key in a URL", async () => {
+    const html = await page();
+    expect(html).toContain("https://unsplash.mocra.com/mcp");
+    expect(html).not.toContain("/mcp/");
+    expect(html).not.toMatch(/[?&](key|api_key|token)=/i);
+  });
+
+  test("has one tab and panel per client, wired together", async () => {
+    const html = await page();
+    for (const id of ["claude-ai", "claude-code", "chatgpt", "codex", "cursor", "vscode", "other"]) {
+      expect(html).toContain(`id="tab-${id}" aria-controls="${id}"`);
+      expect(html).toContain(`id="${id}" aria-labelledby="tab-${id}"`);
+    }
+  });
+
+  test("says it is not affiliated with Unsplash", async () => {
+    expect(await page()).toContain("not affiliated with, sponsored by or endorsed by Unsplash");
+  });
+
+  test("credits every photo with referral links", async () => {
+    const html = await page();
+    const figures = html.match(/<figure[\s\S]*?<\/figure>/g) ?? [];
+    expect(figures.length).toBeGreaterThan(0);
+    expect(figures.length).toBe((html.match(/<img[^>]+images\.unsplash\.com/g) ?? []).length);
+    for (const figure of figures) {
+      expect(figure).toMatch(
+        /Photo by <a href="https:\/\/unsplash\.com\/@[\w-]+\?utm_source=[^"&]+&amp;utm_medium=referral">[^<]+<\/a> on <a href="https:\/\/unsplash\.com\/\?utm_source=[^"&]+&amp;utm_medium=referral">Unsplash<\/a>/,
+      );
+    }
+  });
+
+  test("is self-contained", async () => {
+    const html = await page();
+    expect(html).not.toMatch(/<script[^>]+src=/);
+    expect(html).not.toMatch(/<link[^>]+stylesheet/);
+    const res = await get("/");
+    expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
+  });
+});
+
 describe("icons", () => {
   const get = (path: string, method = "GET") => handle(new Request(`http://x${path}`, { method }));
 

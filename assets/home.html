@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unsplash MCP Server (unofficial)</title>
+<meta name="description" content="An unofficial MCP server for finding Unsplash photos with proper attribution. Bring your own Unsplash access key. The server stores none.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="/favicon.ico">
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #111;
+    --muted: #666;
+    --line: #d1d1d1;
+    --soft: #f5f5f5;
+    --accent: #0f766e;
+    --warn-bg: #fff8e6;
+    --warn-line: #e0b84c;
+    --code-bg: #222;
+    --code-ink: #f2f2f2;
+    --gutter: 72px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: #fff;
+    color: var(--ink);
+    font: 400 16px/1.6 -apple-system, BlinkMacSystemFont, "San Francisco", "Helvetica Neue", Helvetica, Ubuntu, Roboto, Noto, "Segoe UI", Arial, sans-serif;
+  }
+  a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+  a:hover { color: var(--accent); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  img { display: block; max-width: 100%; }
+  h1, h2, h3, p { margin: 0; }
+  code { font: 0.92em/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--soft); padding: 2px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .wrap { max-width: 1440px; margin: 0 auto; padding-inline: var(--gutter); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* Header */
+  .site-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; text-decoration: none; }
+  .brand img { width: 32px; height: 32px; }
+  .tag { border: 1px solid var(--line); border-radius: 999px; padding: 1px 9px; font-size: 13px; font-weight: 400; color: var(--muted); }
+  .site-header nav { display: flex; gap: 24px; font-size: 15px; color: var(--muted); }
+  .site-header nav a { text-decoration: none; }
+
+  /* Hero */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 72px; align-items: center; padding-block: 40px 72px; }
+  h1 { font-size: 46px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; }
+  .lead { margin-top: 20px; font-size: 18px; line-height: 1.6; max-width: 38em; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+  .btn { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 18px; border-radius: 6px; border: 1px solid var(--line); font-size: 15px; text-decoration: none; }
+  .btn:hover { border-color: var(--ink); color: var(--ink); }
+  .btn-dark { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .btn-dark:hover { background: #333; color: #fff; }
+  .note { margin-top: 20px; font-size: 14px; color: var(--muted); }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; }
+  figcaption { margin-top: 8px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+  .hero-photo img { aspect-ratio: 4 / 5; object-fit: cover; border-radius: 4px; background: #b9c4c9; }
+
+  /* Facts */
+  .facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 48px; padding-block: 48px; border-top: 1px solid var(--line); }
+  .facts h2 { font-size: 20px; line-height: 1.3; font-weight: 700; margin-bottom: 8px; }
+  .facts p { color: #333; }
+  .facts p + p { margin-top: 8px; }
+
+  /* Install */
+  .install { padding-block: 56px 72px; border-top: 1px solid var(--line); }
+  .section-title { font-size: 32px; line-height: 1.25; font-weight: 700; }
+  .install-intro { margin-top: 12px; max-width: 46em; }
+  [role="tablist"] { display: flex; flex-wrap: wrap; column-gap: 24px; margin-top: 28px; border-bottom: 1px solid var(--line); }
+  [role="tablist"][hidden] { display: none; }
+  [role="tab"] {
+    appearance: none; background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    min-height: 48px; padding: 8px 0; font: inherit; font-size: 15px; color: var(--muted); cursor: pointer;
+  }
+  [role="tab"]:hover { color: var(--ink); }
+  [role="tab"][aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); font-weight: 600; }
+  [role="tabpanel"] { padding-top: 28px; max-width: 800px; }
+  [role="tabpanel"]:focus-visible { outline-offset: 8px; }
+  [role="tabpanel"][hidden] { display: none; }
+  [role="tabpanel"] + [role="tabpanel"]:not([hidden]) { margin-top: 0; }
+  .panel-title { font-size: 22px; line-height: 1.3; font-weight: 700; margin-bottom: 12px; }
+  h4 { font-size: 16px; margin: 24px 0 8px; }
+  [role="tabpanel"] p { margin-block: 12px; }
+  [role="tabpanel"] ol, [role="tabpanel"] ul { padding-left: 22px; margin-block: 12px; }
+  [role="tabpanel"] li { margin-block: 8px; }
+  .small { font-size: 14px; color: var(--muted); }
+  .code { position: relative; margin-block: 12px; }
+  pre {
+    margin: 0; padding: 16px; background: var(--code-bg); color: var(--code-ink); border-radius: 6px; overflow-x: auto;
+    font: 13.5px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  pre code { all: unset; font: inherit; }
+  .has-copy pre { padding-top: 44px; }
+  .copy {
+    position: absolute; top: 6px; right: 6px; min-height: 32px; padding: 4px 12px; border-radius: 6px;
+    border: 1px solid #666; background: #333; color: #fff; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .copy:hover { background: #444; }
+  .copy:focus-visible { outline-color: #fff; outline-offset: 0; }
+  .callout { margin-block: 12px; padding: 14px 16px; background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 6px; }
+  .callout strong { display: block; }
+
+  /* Photo row */
+  .photos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; padding-bottom: 56px; }
+  .photos img { aspect-ratio: 3 / 2; object-fit: cover; border-radius: 4px; }
+
+  /* Footer */
+  footer { border-top: 1px solid var(--line); padding-block: 32px 40px; font-size: 14px; color: var(--muted); }
+  footer p { max-width: 60em; }
+  footer strong { color: var(--ink); }
+  footer ul { display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; padding: 0; margin: 12px 0 0; }
+
+  @media (max-width: 960px) {
+    :root { --gutter: 32px; }
+    .hero { grid-template-columns: minmax(0, 1fr); gap: 32px; padding-block: 24px 48px; }
+    .hero-photo img { aspect-ratio: 3 / 2; }
+    .facts { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .photos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 600px) {
+    :root { --gutter: 16px; }
+    h1 { font-size: 34px; }
+    .lead { font-size: 17px; }
+    .section-title { font-size: 26px; }
+    .site-header nav { display: none; }
+    [role="tablist"] { column-gap: 18px; }
+    .photos { gap: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="site-header">
+    <a class="brand" href="/">
+      <img src="/favicon.svg" alt="" width="32" height="32">
+      <span>Unsplash MCP Server</span>
+      <span class="tag">Unofficial</span>
+    </a>
+    <nav aria-label="Main">
+      <a href="#install">Install</a>
+      <a href="https://github.com/drnic/unsplash-mcp-server">Source</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div>
+        <h1>Find Unsplash photos from your AI assistant, with credits included.</h1>
+        <p class="lead">This is an MCP server. MCP (Model Context Protocol) lets AI assistants use outside tools. With this server, your assistant can search Unsplash and get each photo with the correct credit to its photographer.</p>
+        <div class="actions">
+          <a class="btn btn-dark" href="#install">Install</a>
+          <a class="btn" href="https://unsplash.com/developers">Get an Unsplash access key</a>
+        </div>
+        <p class="note">An independent project. Not affiliated with, sponsored by or endorsed by Unsplash.</p>
+      </div>
+      <figure class="hero-photo">
+        <img
+          src="https://images.unsplash.com/photo-1501786223405-6d024d7c3b8d?auto=format&amp;fit=crop&amp;w=1000&amp;q=75"
+          srcset="https://images.unsplash.com/photo-1501786223405-6d024d7c3b8d?auto=format&amp;fit=crop&amp;w=600&amp;q=75 600w, https://images.unsplash.com/photo-1501786223405-6d024d7c3b8d?auto=format&amp;fit=crop&amp;w=1000&amp;q=75 1000w, https://images.unsplash.com/photo-1501786223405-6d024d7c3b8d?auto=format&amp;fit=crop&amp;w=1400&amp;q=75 1400w"
+          sizes="(max-width: 960px) 100vw, 40vw"
+          width="1000" height="1250" fetchpriority="high"
+          alt="A white mountain rising above a body of water">
+        <figcaption>Photo by <a href="https://unsplash.com/@peter_mc_greats?utm_source=unsplash_mcp_server&amp;utm_medium=referral">Pietro De Grandi</a> on <a href="https://unsplash.com/?utm_source=unsplash_mcp_server&amp;utm_medium=referral">Unsplash</a></figcaption>
+      </figure>
+    </section>
+
+    <section class="facts" aria-label="About this server">
+      <div>
+        <h2>Your key, your quota</h2>
+        <p>You bring your own Unsplash access key, and each request carries it in a header. The server uses it for that request only and stores no keys.</p>
+        <p><a href="https://unsplash.com/developers">Get a key from Unsplash</a>. You get 50 requests an hour in demo mode, and 5,000 an hour once Unsplash approves your app.</p>
+      </div>
+      <div>
+        <h2>Credit built in</h2>
+        <p>Every photo comes with ready-to-use credit text and HTML, in the form <em>Photo by Jane Doe on Unsplash</em>, with links to the photographer and to Unsplash.</p>
+      </div>
+      <div>
+        <h2>Three tools</h2>
+        <p><code>search_photos</code> finds photos by keyword, colour and orientation. <code>get_random_photos</code> picks photos at random. <code>track_download</code> tells Unsplash when a photo is used, as its API guidelines require.</p>
+      </div>
+    </section>
+
+    <section class="install" id="install" aria-labelledby="install-title">
+      <h2 class="section-title" id="install-title">Install</h2>
+      <p class="install-intro">Every client uses the same server address and sends your key in a request header. Never put your key in a URL. If you don't have a key yet, <a href="https://unsplash.com/developers">get one from Unsplash</a>.</p>
+
+      <div role="tablist" aria-label="Choose your client" hidden>
+        <button type="button" role="tab" id="tab-claude-ai" aria-controls="claude-ai">claude.ai</button>
+        <button type="button" role="tab" id="tab-claude-code" aria-controls="claude-code">Claude Code</button>
+        <button type="button" role="tab" id="tab-chatgpt" aria-controls="chatgpt">ChatGPT</button>
+        <button type="button" role="tab" id="tab-codex" aria-controls="codex">Codex</button>
+        <button type="button" role="tab" id="tab-cursor" aria-controls="cursor">Cursor</button>
+        <button type="button" role="tab" id="tab-vscode" aria-controls="vscode">VS Code</button>
+        <button type="button" role="tab" id="tab-other" aria-controls="other">Other clients</button>
+      </div>
+
+      <div role="tabpanel" id="claude-ai" aria-labelledby="tab-claude-ai" tabindex="0">
+        <h3 class="panel-title">claude.ai</h3>
+        <p>A custom connector works in claude.ai on the web and in the desktop and mobile apps.</p>
+        <ol>
+          <li>Go to <a href="https://claude.ai/customize/connectors">claude.ai/customize/connectors</a> and choose <strong>Add custom connector</strong>.</li>
+          <li>Name: <code>Unsplash</code></li>
+          <li>URL: <code>https://unsplash.mocra.com/mcp</code></li>
+          <li>Authentication: <strong>No sign-in</strong></li>
+          <li>Under <strong>Request headers</strong>, add a header. Name: <code>Authorization</code>. Value: <code>Bearer &lt;your-unsplash-access-key&gt;</code></li>
+          <li>Save. Then enable the connector in a chat from the tools menu.</li>
+        </ol>
+        <p class="small">These steps were checked on a Max plan. Other plans may differ. On a Team or Enterprise plan, an owner may need to add custom connectors in organisation settings first. <a href="https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp">Anthropic's help article</a></p>
+      </div>
+
+      <div role="tabpanel" id="claude-code" aria-labelledby="tab-claude-code" tabindex="0">
+        <h3 class="panel-title">Claude Code</h3>
+        <h4>In your terminal</h4>
+        <p>Set your key in your shell, then add the server to your user config:</p>
+        <div class="code"><pre tabindex="0"><code>export UNSPLASH_ACCESS_KEY=&lt;your-unsplash-access-key&gt;
+
+claude mcp add --transport http --scope user unsplash https://unsplash.mocra.com/mcp \
+  --header "Authorization: Bearer $UNSPLASH_ACCESS_KEY"</code></pre></div>
+        <p>Run <code>/mcp</code> in Claude Code and check that <code>unsplash</code> has a check mark.</p>
+        <h4>In a project, or on Claude Code on the web</h4>
+        <p>Commit this <code>.mcp.json</code> to the root of the repository. Claude Code fills in the variable when it runs, so your key stays out of git.</p>
+        <div class="code"><pre tabindex="0"><code>{
+  "mcpServers": {
+    "unsplash": {
+      "type": "http",
+      "url": "https://unsplash.mocra.com/mcp",
+      "headers": { "Authorization": "Bearer ${UNSPLASH_ACCESS_KEY}" }
+    }
+  }
+}</code></pre></div>
+        <p>On your own computer, set <code>UNSPLASH_ACCESS_KEY</code> in your shell. For Claude Code on the web:</p>
+        <ol>
+          <li>Open the cloud environment menu in the session's title bar and choose <strong>Edit</strong>.</li>
+          <li>Add the environment variable <code>UNSPLASH_ACCESS_KEY</code> with your key as its value.</li>
+          <li>Under <strong>Network access</strong>, choose a broader access level, or add <code>unsplash.mocra.com</code> under <strong>Allowed domains</strong>.</li>
+          <li>Start a new session. Claude Code reads these settings when a session starts.</li>
+        </ol>
+        <p class="small">If you added the claude.ai connector, it is also available in Claude Code on the web sessions. <a href="https://code.claude.com/docs/en/mcp">Claude Code MCP docs</a></p>
+      </div>
+
+      <div role="tabpanel" id="chatgpt" aria-labelledby="tab-chatgpt" tabindex="0">
+        <h3 class="panel-title">ChatGPT</h3>
+        <div class="callout">
+          <strong>ChatGPT connectors can't use this server.</strong>
+          They can't send your key in a request header, and this server needs one.
+        </div>
+        <p>OpenAI's docs list three authentication choices for a custom MCP server: OAuth, No authentication, and OAuth or no authentication. They describe no field for a custom header. Their plugin authentication docs also say that ChatGPT can't "present custom API keys". This server has no OAuth sign-in, so there are no working steps to show here.</p>
+        <p>Don't put your key in the connector's URL. A URL can leak through logs and screenshots.</p>
+        <h4>What you can use instead</h4>
+        <p>OpenAI's docs say the ChatGPT desktop app shares its MCP configuration with Codex, so the <a href="#codex">Codex setup</a> may work there. ChatGPT on the web doesn't read that file.</p>
+        <p class="small">Based on OpenAI's docs, checked November 2026. Not tested in ChatGPT itself. <a href="https://developers.openai.com/api/docs/guides/custom-mcp-server">Add a custom MCP server</a> · <a href="https://developers.openai.com/plugins/build/auth">Plugin authentication</a> · <a href="https://learn.chatgpt.com/docs/extend/mcp">Codex MCP configuration</a></p>
+      </div>
+
+      <div role="tabpanel" id="codex" aria-labelledby="tab-codex" tabindex="0">
+        <h3 class="panel-title">Codex</h3>
+        <ol>
+          <li>Add this to <code>~/.codex/config.toml</code>:
+            <div class="code"><pre tabindex="0"><code>[mcp_servers.unsplash]
+url = "https://unsplash.mocra.com/mcp"
+bearer_token_env_var = "UNSPLASH_ACCESS_KEY"</code></pre></div>
+          </li>
+          <li>Set the variable where Codex can read it. Codex sends its value in the <code>Authorization</code> header.
+            <div class="code"><pre tabindex="0"><code>export UNSPLASH_ACCESS_KEY=&lt;your-unsplash-access-key&gt;</code></pre></div>
+          </li>
+          <li>Run <code>codex mcp list</code>, or <code>/mcp</code> inside Codex, and check that <code>unsplash</code> is listed.</li>
+        </ol>
+        <p class="small">The Codex IDE extension uses the same file. Open its gear menu, select <strong>MCP servers</strong>, then select <strong>Restart extension</strong>. <a href="https://learn.chatgpt.com/docs/extend/mcp">Codex MCP docs</a></p>
+      </div>
+
+      <div role="tabpanel" id="cursor" aria-labelledby="tab-cursor" tabindex="0">
+        <h3 class="panel-title">Cursor</h3>
+        <ol>
+          <li>Add this to <code>~/.cursor/mcp.json</code> for all projects, or to <code>.cursor/mcp.json</code> for one project:
+            <div class="code"><pre tabindex="0"><code>{
+  "mcpServers": {
+    "unsplash": {
+      "url": "https://unsplash.mocra.com/mcp",
+      "headers": { "Authorization": "Bearer ${env:UNSPLASH_ACCESS_KEY}" }
+    }
+  }
+}</code></pre></div>
+          </li>
+          <li>Set <code>UNSPLASH_ACCESS_KEY</code> in your shell profile or system environment, then restart Cursor.</li>
+          <li>In the <strong>Customize</strong> sidebar, check that <code>unsplash</code> is listed and turned on.</li>
+        </ol>
+        <p class="small">If it doesn't connect, open the Output panel and choose <strong>MCP Logs</strong>. <a href="https://cursor.com/docs/context/mcp">Cursor MCP docs</a></p>
+      </div>
+
+      <div role="tabpanel" id="vscode" aria-labelledby="tab-vscode" tabindex="0">
+        <h3 class="panel-title">VS Code</h3>
+        <ol>
+          <li>Add this to <code>.vscode/mcp.json</code> in your workspace:
+            <div class="code"><pre tabindex="0"><code>{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "unsplash-key",
+      "description": "Unsplash access key",
+      "password": true
+    }
+  ],
+  "servers": {
+    "unsplash": {
+      "type": "http",
+      "url": "https://unsplash.mocra.com/mcp",
+      "headers": { "Authorization": "Bearer ${input:unsplash-key}" }
+    }
+  }
+}</code></pre></div>
+          </li>
+          <li>Open the Command Palette, run <strong>MCP: List Servers</strong> and start <code>unsplash</code>.</li>
+          <li>Enter your key when VS Code asks for it. VS Code stores it securely, so it stays out of this file.</li>
+        </ol>
+        <p class="small">VS Code doesn't forward servers that use input variables to Copilot harness sessions. <a href="https://code.visualstudio.com/docs/agents/reference/mcp-configuration">VS Code MCP configuration docs</a></p>
+      </div>
+
+      <div role="tabpanel" id="other" aria-labelledby="tab-other" tabindex="0">
+        <h3 class="panel-title">Other clients</h3>
+        <p>Any client that supports Streamable HTTP and custom headers can connect with these settings:</p>
+        <ul>
+          <li>URL: <code>https://unsplash.mocra.com/mcp</code></li>
+          <li>Header: <code>Authorization: Bearer &lt;your-unsplash-access-key&gt;</code></li>
+          <li>Or this header: <code>X-Unsplash-Access-Key: &lt;your-unsplash-access-key&gt;</code></li>
+        </ul>
+        <p>A client that can't send a custom header can't use the hosted server.</p>
+        <h4>Check your key from a terminal</h4>
+        <p>This lists the server's tools. It sends your key, but makes no call to Unsplash, so it doesn't check that Unsplash accepts the key.</p>
+        <div class="code"><pre tabindex="0"><code>curl https://unsplash.mocra.com/mcp \
+  -H "Authorization: Bearer $UNSPLASH_ACCESS_KEY" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'</code></pre></div>
+        <h4>Run it on your own computer</h4>
+        <p>Desktop clients can run the server locally over stdio instead. You need <a href="https://bun.sh">Bun</a> and a copy of <a href="https://github.com/drnic/unsplash-mcp-server">the source</a>.</p>
+        <div class="code"><pre tabindex="0"><code>{
+  "mcpServers": {
+    "unsplash": {
+      "command": "bun",
+      "args": ["/path/to/unsplash-mcp-server/src/stdio.ts"],
+      "env": { "UNSPLASH_ACCESS_KEY": "&lt;your-unsplash-access-key&gt;" }
+    }
+  }
+}</code></pre></div>
+      </div>
+    </section>
+
+    <section class="photos" aria-label="Photos from Unsplash">
+      <figure>
+        <img src="https://images.unsplash.com/photo-1510414842594-a61c69b5ae57?auto=format&amp;fit=crop&amp;w=800&amp;q=75" width="800" height="533" loading="lazy" style="background:#7fa3ad" alt="A body of water near trees and a mountain cliff in daytime">
+        <figcaption>Photo by <a href="https://unsplash.com/@derekthomson?utm_source=unsplash_mcp_server&amp;utm_medium=referral">Derek Thomson</a> on <a href="https://unsplash.com/?utm_source=unsplash_mcp_server&amp;utm_medium=referral">Unsplash</a></figcaption>
+      </figure>
+      <figure>
+        <img src="https://images.unsplash.com/photo-1542401886-65d6c61db217?auto=format&amp;fit=crop&amp;w=800&amp;q=75" width="800" height="533" loading="lazy" style="background:#d2a679" alt="Rolling sand dunes in a desert landscape">
+        <figcaption>Photo by <a href="https://unsplash.com/@wolfgang_hasselmann?utm_source=unsplash_mcp_server&amp;utm_medium=referral">Wolfgang Hasselmann</a> on <a href="https://unsplash.com/?utm_source=unsplash_mcp_server&amp;utm_medium=referral">Unsplash</a></figcaption>
+      </figure>
+      <figure>
+        <img src="https://images.unsplash.com/photo-1506452305024-9d3f02d1c9b5?auto=format&amp;fit=crop&amp;w=800&amp;q=75" width="800" height="533" loading="lazy" style="background:#4d6650" alt="Green pine trees">
+        <figcaption>Photo by <a href="https://unsplash.com/@kylejglenn?utm_source=unsplash_mcp_server&amp;utm_medium=referral">Kyle Glenn</a> on <a href="https://unsplash.com/?utm_source=unsplash_mcp_server&amp;utm_medium=referral">Unsplash</a></figcaption>
+      </figure>
+      <figure>
+        <img src="https://images.unsplash.com/photo-1431576901776-e539bd916ba2?auto=format&amp;fit=crop&amp;w=800&amp;q=75" width="800" height="533" loading="lazy" style="background:#8a97a6" alt="Tall buildings seen from street level, looking up">
+        <figcaption>Photo by <a href="https://unsplash.com/@killerfvith?utm_source=unsplash_mcp_server&amp;utm_medium=referral">Alex wong</a> on <a href="https://unsplash.com/?utm_source=unsplash_mcp_server&amp;utm_medium=referral">Unsplash</a></figcaption>
+      </figure>
+    </section>
+  </main>
+
+  <footer>
+    <p><strong>This is an unofficial project.</strong> It is not affiliated with, sponsored by or endorsed by Unsplash. Unsplash is a trademark of its owner, and photos belong to the photographers credited above.</p>
+    <ul>
+      <li><a href="https://github.com/drnic/unsplash-mcp-server">Source on GitHub</a></li>
+      <li><a href="/health">Server status</a></li>
+      <li><a href="https://unsplash.com/developers">Unsplash developers</a></li>
+      <li><a href="https://unsplash.com/oauth/applications">Rotate a leaked key</a></li>
+    </ul>
+  </footer>
+</div>
+<div class="sr-only" role="status" id="copy-status"></div>
+
+<script>
+(function () {
+  var tablist = document.querySelector('[role="tablist"]');
+  var tabs = Array.prototype.slice.call(tablist.querySelectorAll('[role="tab"]'));
+  var panels = tabs.map(function (tab) { return document.getElementById(tab.getAttribute("aria-controls")); });
+
+  function select(index, focus) {
+    tabs.forEach(function (tab, i) {
+      var on = i === index;
+      tab.setAttribute("aria-selected", on ? "true" : "false");
+      tab.tabIndex = on ? 0 : -1;
+      panels[i].hidden = !on;
+    });
+    if (focus) tabs[index].focus();
+  }
+
+  function indexForHash() {
+    return panels.findIndex(function (panel) { return "#" + panel.id === location.hash; });
+  }
+
+  function showHash() {
+    var index = indexForHash();
+    if (index < 0) return;
+    select(index, false);
+    document.getElementById("install").scrollIntoView();
+  }
+
+  tabs.forEach(function (tab, i) {
+    tab.addEventListener("click", function () {
+      select(i, false);
+      history.replaceState(null, "", "#" + panels[i].id);
+    });
+    tab.addEventListener("keydown", function (event) {
+      var last = tabs.length - 1;
+      var next = { ArrowRight: i === last ? 0 : i + 1, ArrowLeft: i === 0 ? last : i - 1, Home: 0, End: last }[event.key];
+      if (next === undefined) return;
+      event.preventDefault();
+      select(next, true);
+      history.replaceState(null, "", "#" + panels[next].id);
+    });
+  });
+
+  tablist.hidden = false;
+  select(0, false);
+  showHash();
+  window.addEventListener("hashchange", showHash);
+
+  var status = document.getElementById("copy-status");
+  document.querySelectorAll(".code").forEach(function (block) {
+    var pre = block.querySelector("pre");
+    var button = document.createElement("button");
+    var timer;
+    function done(text) {
+      button.textContent = text;
+      status.textContent = text;
+      clearTimeout(timer);
+      timer = setTimeout(function () { button.textContent = "Copy"; status.textContent = ""; }, 2000);
+    }
+    button.type = "button";
+    button.className = "copy";
+    button.textContent = "Copy";
+    button.addEventListener("click", function () {
+      if (!navigator.clipboard) return done("Copy failed");
+      navigator.clipboard.writeText(pre.textContent).then(
+        function () { done("Copied"); },
+        function () { done("Copy failed"); }
+      );
+    });
+    block.classList.add("has-copy");
+    block.appendChild(button);
+  });
+})();
+</script>
+</body>
+</html>
