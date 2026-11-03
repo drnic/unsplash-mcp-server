@@ -39,14 +39,17 @@ Search and random tools return `{ "photos": [...] }`; `track_download` returns `
 
 ## Sending your Unsplash key
 
-Get an access key at <https://unsplash.com/developers>. The server accepts it in either of these headers:
+Get an access key at <https://unsplash.com/developers>. The server accepts it in any of these headers:
 
 | Method | Example |
 |---|---|
-| `Authorization` header **(preferred)** | `Authorization: Bearer <key>` or `Authorization: Client-ID <key>` |
-| Custom header | `X-Unsplash-Access-Key: <key>` |
+| `X-Unsplash-Access-Key` header **(preferred)** | `X-Unsplash-Access-Key: <key>` |
+| `X-API-Key` header (for claude.ai) | `X-API-Key: <key>` |
+| `Authorization` header (the value needs a prefix) | `Authorization: Bearer <key>` or `Authorization: Client-ID <key>` |
 
-Requests with no key get a `401`. The server never falls back to a key of its own, so nobody can use up your quota through it.
+Use `X-Unsplash-Access-Key` where your client lets you name the header. Its value is just the key, so there is no prefix to forget. claude.ai is the exception: it only accepts approved header names, so use `x-api-key` there. Its value is also just the key.
+
+Requests with no valid key get a `401`. This includes an `Authorization` value with no prefix. The server never falls back to a key of its own, so nobody can use up your quota through it.
 
 ## Client configuration
 
@@ -62,7 +65,7 @@ Replace `unsplash-mcp.example.com` below with your deployed host. You can check 
        "unsplash": {
          "type": "http",
          "url": "https://unsplash-mcp.example.com/mcp",
-         "headers": { "Authorization": "Bearer ${UNSPLASH_ACCESS_KEY}" }
+         "headers": { "X-Unsplash-Access-Key": "${UNSPLASH_ACCESS_KEY}" }
        }
      }
    }
@@ -86,7 +89,7 @@ The same `.mcp.json` works locally, with `UNSPLASH_ACCESS_KEY` exported in your 
 
 ```bash
 claude mcp add --transport http --scope user unsplash https://unsplash-mcp.example.com/mcp \
-  --header "Authorization: Bearer $UNSPLASH_ACCESS_KEY"
+  --header "X-Unsplash-Access-Key: $UNSPLASH_ACCESS_KEY"
 ```
 
 ### claude.ai (web, desktop and mobile apps): custom connector
@@ -100,10 +103,14 @@ claude mcp add --transport http --scope user unsplash https://unsplash-mcp.examp
    ```
 
 4. Authentication: **No sign-in**.
-5. Under **Request headers**, add a header. Name: `Authorization`. Value: `Bearer <your-unsplash-access-key>`.
+5. Under **Request headers**, add a header. Choose the name `x-api-key` from the list. Value: `<your-unsplash-access-key>`, with no prefix.
 6. Save. Then enable the connector in a chat from the tools menu, or start a new Claude Code on the web session to pick it up.
 
 These steps were checked on a Max plan. Other plans may differ.
+
+Don't use `X-Unsplash-Access-Key` here. claude.ai only accepts header names that Anthropic has approved. If you try this name, claude.ai says it "isn't approved" and won't add the connector.
+
+**If claude.ai shows "Connection issue"** or "Couldn't connect to the server. Check that the URL points to a valid MCP server.", the cause may be the header and not the URL. Check that the header value is your full key. If you used `Authorization`, check that the value includes the `Bearer ` prefix. You can't view a header value after you save it, and the connector menu only offers **Remove**. To fix a value, remove the connector and add it again.
 
 On a Team or Enterprise plan, an owner may need to add custom connectors in organisation settings first. Help: <https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp>.
 
@@ -114,8 +121,10 @@ On a Team or Enterprise plan, an owner may need to add custom connectors in orga
 ```toml
 [mcp_servers.unsplash]
 url = "https://unsplash-mcp.example.com/mcp"
-bearer_token_env_var = "UNSPLASH_ACCESS_KEY"
+env_http_headers = { "X-Unsplash-Access-Key" = "UNSPLASH_ACCESS_KEY" }
 ```
+
+The value in this map is the name of an environment variable, not the key. Set `UNSPLASH_ACCESS_KEY` where Codex can read it.
 
 ### Local stdio mode
 

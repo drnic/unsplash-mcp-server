@@ -32,7 +32,9 @@ describe("extractKey", () => {
     expect(k({ authorization: `Bearer ${KEY}` })).toBe(KEY);
     expect(k({ authorization: `Client-ID ${KEY}` })).toBe(KEY);
     expect(k({ "x-unsplash-access-key": KEY })).toBe(KEY);
+    expect(k({ "x-api-key": KEY })).toBe(KEY);
     expect(k({})).toBeNull();
+    expect(k({ "x-api-key": `Bearer ${KEY}` })).toBeNull();
     expect(k({ authorization: "Bearer bad key!" })).toBeNull();
   });
   test("ignores a key in the URL", () => expect(k({}, `/mcp/${KEY}`)).toBeNull());
@@ -242,6 +244,7 @@ describe("HTTP MCP", () => {
     const body: any = await res.json();
     expect(body.error.message).toContain("Authorization: Bearer <key>");
     expect(body.error.message).toContain("X-Unsplash-Access-Key: <key>");
+    expect(body.error.message).toContain("X-API-Key: <key>");
     expect(body.error.message).not.toContain("/mcp");
   });
 

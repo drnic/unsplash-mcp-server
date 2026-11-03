@@ -5,8 +5,9 @@
  * The server holds no Unsplash key. Each request carries the caller's own key,
  * which is used for that request only and then forgotten:
  *
- *   Authorization: Bearer <key>          (or "Client-ID <key>")
  *   X-Unsplash-Access-Key: <key>
+ *   X-API-Key: <key>                     (claude.ai only accepts approved header names)
+ *   Authorization: Bearer <key>          (or "Client-ID <key>")
  *
  * Keys are never accepted in the URL, because URLs leak through logs and screenshots.
  * Old clients may still call /mcp/<key>: they get a 404, and the logger must not print the key.
@@ -26,8 +27,10 @@ export function extractKey(req: Request): string | null {
     const m = auth.match(/^(?:Bearer|Client-ID)\s+(\S+)$/i);
     if (m && KEY_RE.test(m[1]!)) return m[1]!;
   }
-  const header = req.headers.get("x-unsplash-access-key")?.trim();
-  if (header && KEY_RE.test(header)) return header;
+  for (const name of ["x-unsplash-access-key", "x-api-key"]) {
+    const header = req.headers.get(name)?.trim();
+    if (header && KEY_RE.test(header)) return header;
+  }
   return null;
 }
 
@@ -85,7 +88,7 @@ export async function handle(req: Request): Promise<Response> {
   if (!accessKey) {
     return jsonRpcError(
       401,
-      "Missing Unsplash access key. Send 'Authorization: Bearer <key>' or 'X-Unsplash-Access-Key: <key>'.",
+      "Missing Unsplash access key. Send 'X-Unsplash-Access-Key: <key>', 'X-API-Key: <key>' or 'Authorization: Bearer <key>'.",
     );
   }
 
