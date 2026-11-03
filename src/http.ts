@@ -15,6 +15,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { createServer } from "./server.ts";
 import { utmSource } from "./config.ts";
 import { faviconIco, iconSvg } from "./icon.ts";
+import { serveHome } from "./home.ts";
 import pkg from "../package.json" with { type: "json" };
 
 const KEY_RE = /^[A-Za-z0-9_-]{10,128}$/;
@@ -67,7 +68,9 @@ function serveIcon(req: Request, icon: { body: Uint8Array<ArrayBuffer>; type: st
 export async function handle(req: Request): Promise<Response> {
   const url = new URL(req.url);
 
-  if (url.pathname === "/" || url.pathname === "/health") {
+  if (url.pathname === "/") return serveHome(req);
+
+  if (url.pathname === "/health") {
     return Response.json({ name: pkg.name, version: pkg.version, status: "ok", mcp_endpoint: "/mcp" });
   }
 

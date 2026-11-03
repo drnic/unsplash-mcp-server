@@ -135,7 +135,7 @@ bearer_token_env_var = "UNSPLASH_ACCESS_KEY"
 
 ```bash
 bun install
-bun run start        # HTTP on $PORT (default 3000): POST /mcp, GET /health
+bun run start        # HTTP on $PORT (default 3000): GET / (homepage), POST /mcp, GET /health
 bun run dev          # same, with --watch
 bun run stdio        # stdio mode (needs UNSPLASH_ACCESS_KEY)
 bun test
