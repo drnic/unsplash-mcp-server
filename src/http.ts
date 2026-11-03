@@ -7,7 +7,9 @@
  *
  *   Authorization: Bearer <key>          (or "Client-ID <key>")
  *   X-Unsplash-Access-Key: <key>
- *   POST /mcp/<key>                      (for clients that can't set headers, e.g. claude.ai connectors)
+ *
+ * Keys are never accepted in the URL, because URLs leak through logs and screenshots.
+ * Old clients may still call /mcp/<key>: they get a 404, and the logger must not print the key.
  */
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { createServer } from "./server.ts";
@@ -17,7 +19,7 @@ import pkg from "../package.json" with { type: "json" };
 
 const KEY_RE = /^[A-Za-z0-9_-]{10,128}$/;
 
-export function extractKey(req: Request, url: URL): string | null {
+export function extractKey(req: Request): string | null {
   const auth = req.headers.get("authorization");
   if (auth) {
     const m = auth.match(/^(?:Bearer|Client-ID)\s+(\S+)$/i);
@@ -25,17 +27,22 @@ export function extractKey(req: Request, url: URL): string | null {
   }
   const header = req.headers.get("x-unsplash-access-key")?.trim();
   if (header && KEY_RE.test(header)) return header;
-
-  const m = url.pathname.match(/^\/mcp\/([^/]+)\/?$/);
-  if (m && KEY_RE.test(m[1]!)) return m[1]!;
   return null;
 }
 
 const jsonRpcError = (status: number, message: string, headers: Record<string, string> = {}) =>
   Response.json({ jsonrpc: "2.0", error: { code: -32000, message }, id: null }, { status, headers });
 
-/** Strip keys out of anything we log. */
-export const redactPath = (p: string) => p.replace(/^\/mcp\/[^/]+/, "/mcp/[redacted]");
+const LOGGABLE_PATHS = new Set(["/", "/health", "/favicon.ico", "/favicon.svg", "/mcp", "/mcp/"]);
+
+/**
+ * Only known routes are logged as sent, because any other path may hold a key.
+ * "/mcp/[redacted]" stays distinct so the logs show which old clients still call /mcp/<key>.
+ */
+export const redactPath = (p: string) => {
+  if (LOGGABLE_PATHS.has(p)) return p;
+  return p.startsWith("/mcp/") ? "/mcp/[redacted]" : "[unmatched]";
+};
 
 const ICONS: Record<string, { body: Uint8Array<ArrayBuffer>; type: string }> = {
   "/favicon.ico": { body: faviconIco, type: "image/x-icon" },
@@ -67,15 +74,15 @@ export async function handle(req: Request): Promise<Response> {
   const icon = ICONS[url.pathname];
   if (icon) return serveIcon(req, icon);
 
-  if (!/^\/mcp(\/[^/]+)?\/?$/.test(url.pathname)) {
+  if (!/^\/mcp\/?$/.test(url.pathname)) {
     return new Response("Not found", { status: 404 });
   }
 
-  const accessKey = extractKey(req, url);
+  const accessKey = extractKey(req);
   if (!accessKey) {
     return jsonRpcError(
       401,
-      "Missing Unsplash access key. Send 'Authorization: Bearer <key>', 'X-Unsplash-Access-Key: <key>', or use /mcp/<key>.",
+      "Missing Unsplash access key. Send 'Authorization: Bearer <key>' or 'X-Unsplash-Access-Key: <key>'.",
     );
   }
 
@@ -95,22 +102,21 @@ export async function handle(req: Request): Promise<Response> {
   }
 }
 
+/** The request logger: handles the request, then logs one line with the path redacted. */
+export async function handleAndLog(req: Request): Promise<Response> {
+  const started = performance.now();
+  const res = await handle(req).catch((e) => {
+    console.error("Unhandled error:", e?.message ?? e);
+    return jsonRpcError(500, "Internal server error");
+  });
+  const path = redactPath(new URL(req.url).pathname);
+  console.log(`${req.method} ${path} ${res.status} ${Math.round(performance.now() - started)}ms`);
+  return res;
+}
+
 if (import.meta.main) {
   const port = Number(process.env.PORT) || 3000;
   const hostname = process.env.HOST || "0.0.0.0";
-  Bun.serve({
-    port,
-    hostname,
-    async fetch(req) {
-      const started = performance.now();
-      const res = await handle(req).catch((e) => {
-        console.error("Unhandled error:", e?.message ?? e);
-        return jsonRpcError(500, "Internal server error");
-      });
-      const path = redactPath(new URL(req.url).pathname);
-      console.log(`${req.method} ${path} ${res.status} ${Math.round(performance.now() - started)}ms`);
-      return res;
-    },
-  });
+  Bun.serve({ port, hostname, fetch: handleAndLog });
   console.log(`Unsplash MCP server listening on http://${hostname}:${port}/mcp`);
 }
