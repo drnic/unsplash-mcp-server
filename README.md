@@ -39,15 +39,12 @@ Search and random tools return `{ "photos": [...] }`; `track_download` returns `
 
 ## Sending your Unsplash key
 
-Get an access key at <https://unsplash.com/developers>. The server accepts it in any one of these ways:
+Get an access key at <https://unsplash.com/developers>. The server accepts it in either of these headers:
 
-| Method | Example | Use when |
-|---|---|---|
-| `Authorization` header | `Authorization: Bearer <key>` | The client can set headers (Claude Code, Codex, Cursor) **(preferred)** |
-| Custom header | `X-Unsplash-Access-Key: <key>` | Same as above |
-| URL path | `https://your-host/mcp/<key>` | The client can't set headers (claude.ai custom connectors) |
-
-> The URL-path form puts your key in the URL, which reverse-proxy access logs may record. This server redacts it from its own logs. Use a header whenever your client supports one.
+| Method | Example |
+|---|---|
+| `Authorization` header **(preferred)** | `Authorization: Bearer <key>` or `Authorization: Client-ID <key>` |
+| Custom header | `X-Unsplash-Access-Key: <key>` |
 
 Requests with no key get a `401`. The server never falls back to a key of its own, so nobody can use up your quota through it.
 
@@ -94,20 +91,23 @@ claude mcp add --transport http --scope user unsplash https://unsplash-mcp.examp
 
 ### claude.ai (web, desktop and mobile apps): custom connector
 
-claude.ai connectors can't send custom headers, so the key goes in the URL path.
-
 1. Go to <https://claude.ai/customize/connectors> and choose **Add custom connector**.
-2. Name: `Unsplash`. URL:
+2. Name: `Unsplash`.
+3. URL (with no key in it):
 
    ```
-   https://unsplash-mcp.example.com/mcp/<your-unsplash-access-key>
+   https://unsplash-mcp.example.com/mcp
    ```
 
-3. Leave the OAuth fields empty and save. Then enable the connector in a chat from the tools menu, or start a new Claude Code on the web session to pick it up.
+4. Authentication: **No sign-in**.
+5. Under **Request headers**, add a header. Name: `Authorization`. Value: `Bearer <your-unsplash-access-key>`.
+6. Save. Then enable the connector in a chat from the tools menu, or start a new Claude Code on the web session to pick it up.
+
+These steps were checked on a Max plan. Other plans may differ.
 
 On a Team or Enterprise plan, an owner may need to add custom connectors in organisation settings first. Help: <https://support.claude.com/en/articles/11175166-getting-started-with-custom-connectors-using-remote-mcp>.
 
-> Anyone who sees this URL can use your Unsplash quota. Don't share it. Rotate the key at <https://unsplash.com/oauth/applications> if it leaks.
+> Keep your key private. Anyone who has it can use your Unsplash quota. Rotate the key at <https://unsplash.com/oauth/applications> if it leaks.
 
 ### Codex (`~/.codex/config.toml`)
 
@@ -156,7 +156,7 @@ Environment variables (see `.env.example`):
 1. Install Bun on the server (`curl -fsSL https://bun.sh/install | bash`).
 2. Build command: `bun install --production`
 3. Start command: `bun run start` (a `Procfile` is included: `web: bun run start`).
-4. Expose the app over **HTTPS**, since keys travel in request headers or URLs. The health check is `GET /health`.
+4. Expose the app over **HTTPS**, since keys travel in request headers. The health check is `GET /health`.
 5. Set `UNSPLASH_UTM_SOURCE` to your Unsplash app's name.
 
 The server is stateless (no sessions; it answers with JSON instead of SSE streams), so it runs fine behind nginx buffering and can scale to several processes.
